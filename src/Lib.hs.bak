@@ -11,8 +11,6 @@ import Happstack.Server (nullConf
 --                        ,ServerPart
                         ,toResponse
                         ,Response
-                        ,port
-                        ,logAccess
                         )
 import qualified Happstack.Server as HS
 -- import qualified Happstack.Server.Proxy as SP
@@ -25,8 +23,6 @@ import qualified Control.Monad.Trans.State.Lazy as SL
 import Control.Monad.Trans.Class(lift)
 -- import Control.Applicative((<|>))
 import qualified Data.IORef as Ref
--- happstack 中使用到的时间
-import qualified Data.Time.Format as T
 
 type MyRef = Ref.IORef (String,Int)
 type MyResponse = HS.ServerPartT (SL.StateT MyRef IO) Response
@@ -34,27 +30,20 @@ type MyResponse = HS.ServerPartT (SL.StateT MyRef IO) Response
 someFunc :: IO ()
 someFunc = do
   iomsg <- Ref.newIORef ("new",0)
-  let config = nullConf {port=80,logAccess=Just logfn'}
-  simpleHTTP' (unpackErrorT iomsg) config myapp
-  where logfn' a0 a1 a2 a3 a4 a5 a6 a7 = putStrLn $ show $ (a0,a1,a2' a2,a3,a4,a5,a6,a7)
-        a2' a2 =
-          T.formatTime
-            T.defaultTimeLocale
-            (T.iso8601DateFormat $ Just "%H:%M:%S")
-            a2
+  simpleHTTP' (unpackErrorT iomsg) nullConf myapp
 
 unpackErrorT :: MyRef -> SL.StateT MyRef IO b -> IO b
 unpackErrorT ref unwebt = do
+  putStrLn "unpackErrorT"
   SL.evalStateT unwebt ref
 
 
 myapp :: MyResponse
 myapp = do 
-  HS.decodeBody (HS.defaultBodyPolicy "/tmp/" (10*10^(6::Int)) 1000 1000)
-  msum [ dir "message" $ messageApp
-       ,dir "myshar" $ HS.serveDirectory HS.EnableBrowsing [] "/shar001"
-       ,my404
-       ]
+  HS.decodeBody (HS.defaultBodyPolicy "/tmp/" (10*10^6) 1000 1000)
+  msum [
+    dir "message" $ messageApp,
+    my404]
 
 messageApp :: MyResponse
 messageApp = msum[
